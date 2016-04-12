@@ -2,6 +2,7 @@ package com.avoice.uam;
 
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.net.wifi.WifiManager;
 import android.os.PowerManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -26,6 +27,8 @@ public class MainActivity extends AppCompatActivity {
     private MediaPlayer mPlayer;
 
     private State currentState;
+
+    private WifiManager.WifiLock wifiLock;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,11 +62,17 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+
+        ((WifiManager) getSystemService(Context.WIFI_SERVICE))
+                .createWifiLock(WifiManager.WIFI_MODE_FULL, "UAM_lock");
     }
 
     @Override
     protected void onDestroy() {
-        if (mPlayer != null) mPlayer.release();
+        if (mPlayer != null) {
+            mPlayer.release();
+            mPlayer = null;
+        }
         super.onDestroy();
     }
 
@@ -99,6 +108,7 @@ public class MainActivity extends AppCompatActivity {
             notifyStateChanged();
             try {
                 mPlayer.setDataSource(Url);
+                mPlayer.setWakeMode(getApplicationContext(), PowerManager.PARTIAL_WAKE_LOCK);
                 mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
                 mPlayer.setVolume(Config.AUDIO_VOLUME, Config.AUDIO_VOLUME);
                 mPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
@@ -130,6 +140,7 @@ public class MainActivity extends AppCompatActivity {
             } catch (IOException | IllegalStateException | IllegalArgumentException |SecurityException
                     e ) {
                 Log.e(LOGTAG, "playSound() error: " + e.toString());
+                return;
             }
         } else if(currentState == State.PAUSED) {
             //if player was just paused (and not stopped) we can continue playing by "unpausing" it
@@ -137,6 +148,7 @@ public class MainActivity extends AppCompatActivity {
             currentState = State.PLAYING;
             notifyStateChanged();
         }
+        wifiLock.acquire();
     }
 
     public void pause() {
@@ -154,11 +166,13 @@ public class MainActivity extends AppCompatActivity {
                 mPlayer.release();
                 currentState = State.STOPPED;
                 notifyStateChanged();
+                wifiLock.release();
             }
         } else {
             currentState = State.STOPPED;
             notifyStateChanged();
         }
+        wifiLock.release();
     }
 
     public boolean stopPlaying(){
@@ -167,6 +181,7 @@ public class MainActivity extends AppCompatActivity {
         if (mPlayer == null) {
             currentState = State.STOPPED;
             notifyStateChanged();
+            wifiLock.release();
             return false;
         } else {
             try {
@@ -180,10 +195,12 @@ public class MainActivity extends AppCompatActivity {
                 mPlayer.release();
                 currentState = State.STOPPED;
                 notifyStateChanged();
+                wifiLock.release();
                 return false;
             }
             currentState = State.STOPPED;
             notifyStateChanged();
+            wifiLock.release();
             return true;
         }
     }
