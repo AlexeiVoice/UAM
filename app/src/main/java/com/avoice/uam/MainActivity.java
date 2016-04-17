@@ -1,8 +1,14 @@
 package com.avoice.uam;
 
+import android.app.PendingIntent;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.wifi.WifiManager;
+import android.os.IBinder;
 import android.os.PowerManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -12,200 +18,127 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import com.avoice.uam.interfaces.OnPlayerStateChangedListener;
 import com.avoice.uam.util.Config;
+import com.avoice.uam.util.Constants;
 
 import java.io.IOException;
 
-public class MainActivity extends AppCompatActivity {
-    public enum State { PREPARING, PLAYING, PAUSED, STOPPED, RESTART };
+public class MainActivity extends AppCompatActivity implements OnPlayerStateChangedListener {
     private final String LOGTAG = "MainActivity";
 
     private Button btnPlay;
     private ProgressBar progressBar;
     private TextView infoTextView;
 
-    private MediaPlayer mPlayer;
-
-    private State currentState;
-
-    private WifiManager.WifiLock wifiLock;
+    private ForegroundService mAudioService;
+    private boolean isServiceBound;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        currentState = State.STOPPED;
+        isServiceBound = false;
+        doBindService();
 
-        infoTextView = (TextView)findViewById(R.id.tv_info);
-        progressBar = (ProgressBar)findViewById(R.id.progressBar);
+        //Init the UI
+        infoTextView = (TextView) findViewById(R.id.tv_info);
+        progressBar = (ProgressBar) findViewById(R.id.progressBar);
         progressBar.setVisibility(View.GONE);
-        btnPlay = (Button)findViewById(R.id.btn_start_playing);
+        btnPlay = (Button) findViewById(R.id.btn_start_playing);
         btnPlay.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                switch (currentState) {
-                    case STOPPED:
-                    case PAUSED:
-                        play(Config.RADIO_URL);
-                        break;
-                    case PREPARING:
-                    case RESTART:
-                        stopPlaying();
-                        break;
-                    case PLAYING:
-                        pause();
-                        break;
-                    default:
-                        stopPlaying();
-                        break;
-
+                if(mAudioService != null) {
+                    mAudioService.executeAction(Constants.Action.ACTION_PLAY);
                 }
             }
         });
-
-        ((WifiManager) getSystemService(Context.WIFI_SERVICE))
-                .createWifiLock(WifiManager.WIFI_MODE_FULL, "UAM_lock");
+        initUI();
     }
 
     @Override
     protected void onDestroy() {
-        if (mPlayer != null) {
-            mPlayer.release();
-            mPlayer = null;
-        }
+        mAudioService.doStartForeground();
+        doUnbindService();
+        Log.d(LOGTAG, "onDestroy()");
         super.onDestroy();
     }
 
-    public void notifyStateChanged() {
-        Log.d(LOGTAG, currentState.toString());
-        switch (currentState) {
+    private ServiceConnection mServiceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+            mAudioService = ((ForegroundService.MusicServiceBinder) iBinder).getService();
+            isServiceBound = true;
+            mAudioService.setOnStateChangeListener(MainActivity.this);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName componentName) {
+            mAudioService = null;
+            isServiceBound = false;
+        }
+    };
+
+    private void doBindService() {
+        Intent serviceIntent = new Intent(MainActivity.this, ForegroundService.class);
+        startService(serviceIntent);
+        bindService(serviceIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
+    }
+
+    private void doUnbindService() {
+        if(isServiceBound) {
+            unbindService(mServiceConnection);
+        }
+    }
+
+    private void initUI() {
+        if(mAudioService != null) {
+            onPlayerStateChange(mAudioService.getCurrentState());
+        }
+    }
+
+    @Override
+    public void onPlayerStateChange(Config.State newState) {
+        switch (newState) {
             case PAUSED:
                 infoTextView.setText(getString(R.string.paused));
                 btnPlay.setText(getString(R.string.start_playing));
+                progressBar.setVisibility(View.GONE);
                 break;
             case PLAYING:
                 infoTextView.setText(getString(R.string.playing));
                 btnPlay.setText(getString(R.string.pause_playing));
+                progressBar.setVisibility(View.GONE);
                 break;
             case PREPARING:
             case RESTART:
                 infoTextView.setText(getString(R.string.preparing));
                 btnPlay.setText(getString(R.string.pause_playing));
+                progressBar.setVisibility(View.VISIBLE);
                 break;
             case STOPPED:
             default:
                 infoTextView.setText("");
                 btnPlay.setText(getString(R.string.start_playing));
+                progressBar.setVisibility(View.GONE);
                 break;
         }
     }
 
-    public void play(String Url) {
-        Log.d(LOGTAG, "play()");
-        if(currentState == State.STOPPED) {
-            mPlayer = new MediaPlayer();
-            currentState = State.PREPARING;
-            notifyStateChanged();
-            try {
-                mPlayer.setDataSource(Url);
-                mPlayer.setWakeMode(getApplicationContext(), PowerManager.PARTIAL_WAKE_LOCK);
-                mPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
-                mPlayer.setVolume(Config.AUDIO_VOLUME, Config.AUDIO_VOLUME);
-                mPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-                    @Override
-                    public void onPrepared(MediaPlayer mediaPlayer) {
-                        Log.d(LOGTAG, "onPrepared");
-                        currentState = State.PLAYING;
-                        notifyStateChanged();
-                        mediaPlayer.start();
-                        progressBar.setVisibility(View.GONE);
-                    }
-                });
-                mPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-                    @Override
-                    public void onCompletion(MediaPlayer mediaPlayer) {
-                        Log.d(LOGTAG, "onCompletion()");
-                        mediaPlayer.pause();
-                        //TODO Deal with this case: after unpausing player only plays part that happened to be downloaded before pause.
-                        /*currentState = State.PAUSED;
-                        notifyStateChanged();*/
-                        currentState = State.RESTART;
-                        notifyStateChanged();
-                        play(Config.RADIO_URL);
-                    }
-                });
-                mPlayer.prepareAsync();
-                progressBar.setVisibility(View.VISIBLE);
-
-            } catch (IOException | IllegalStateException | IllegalArgumentException |SecurityException
-                    e ) {
-                Log.e(LOGTAG, "playSound() error: " + e.toString());
-                return;
-            }
-        } else if(currentState == State.PAUSED) {
-            //if player was just paused (and not stopped) we can continue playing by "unpausing" it
-            mPlayer.start();
-            currentState = State.PLAYING;
-            notifyStateChanged();
+    @Override
+    protected void onPause() {
+        if(mAudioService != null) {
+            mAudioService.doStartForeground();
         }
-        wifiLock.acquire();
+        super.onPause();
     }
 
-    public void pause() {
-        Log.d(LOGTAG, "pause()");
-        progressBar.setVisibility(View.GONE);
-        if (mPlayer != null) {
-            try {
-                if(mPlayer.isPlaying()) {
-                    mPlayer.pause();
-                    currentState = State.PAUSED;
-                    notifyStateChanged();
-                }
-            } catch (IllegalStateException e) {
-                Log.e(LOGTAG, "pause(): " + e.toString());
-                mPlayer.release();
-                currentState = State.STOPPED;
-                notifyStateChanged();
-                wifiLock.release();
-            }
-        } else {
-            currentState = State.STOPPED;
-            notifyStateChanged();
+    @Override
+    protected void onResume() {
+        if(mAudioService != null) {
+            mAudioService.doStopForeground();
         }
-        wifiLock.release();
-    }
-
-    public boolean stopPlaying(){
-        Log.d(LOGTAG, "stopPlaying()");
-        progressBar.setVisibility(View.GONE);
-        if (mPlayer == null) {
-            currentState = State.STOPPED;
-            notifyStateChanged();
-            wifiLock.release();
-            return false;
-        } else {
-            try {
-                if(mPlayer.isPlaying()) {
-                    mPlayer.stop();
-                }
-                mPlayer.reset();
-                mPlayer.release();
-            } catch (IllegalStateException e) {
-                Log.e(LOGTAG, "stopPlaying: " + e.toString());
-                mPlayer.release();
-                currentState = State.STOPPED;
-                notifyStateChanged();
-                wifiLock.release();
-                return false;
-            }
-            currentState = State.STOPPED;
-            notifyStateChanged();
-            wifiLock.release();
-            return true;
-        }
-    }
-
-    public State getCurrentState() {
-        return currentState;
+        super.onResume();
     }
 }
