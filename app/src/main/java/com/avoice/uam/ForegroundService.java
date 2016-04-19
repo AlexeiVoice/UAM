@@ -57,11 +57,16 @@ public class ForegroundService extends Service {
     }
 
     @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        wifiLock = ((WifiManager) getSystemService(Context.WIFI_SERVICE))
-                .createWifiLock(WifiManager.WIFI_MODE_FULL, WIFILOCK);
+    public void onCreate() {
         notificationBuilder = new NotificationCompat.Builder(getApplicationContext());
         notificationManager = (NotificationManager) getSystemService(this.NOTIFICATION_SERVICE);
+        wifiLock = ((WifiManager) getSystemService(Context.WIFI_SERVICE))
+                .createWifiLock(WifiManager.WIFI_MODE_FULL, WIFILOCK);
+        super.onCreate();
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
 
         if(intent != null){
             String action = intent.getAction();
@@ -77,8 +82,8 @@ public class ForegroundService extends Service {
                     executeAction(action);
                     break;
                 case Constants.Action.ACTION_QUIT:
-                    stopForeground(true);
                     stopPlaying();
+                    stopForeground(true);
                     stopSelf();
                     break;
                 default:
@@ -99,11 +104,10 @@ public class ForegroundService extends Service {
         if (mPlayer != null) {
             mPlayer.release();
             mPlayer = null;
-            if(wifiLock.isHeld()) {
-                wifiLock.release();
-            }
         }
-        super.onLowMemory();
+        if(wifiLock.isHeld()) {
+            wifiLock.release();
+        }
     }
 
     @Override
@@ -111,9 +115,9 @@ public class ForegroundService extends Service {
         if (mPlayer != null) {
             mPlayer.release();
             mPlayer = null;
-            if(wifiLock.isHeld()) {
-                wifiLock.release();
-            }
+        }
+        if(wifiLock.isHeld()) {
+            wifiLock.release();
         }
         Log.d(LOGTAG, "onDestroy()");
         super.onDestroy();
@@ -144,7 +148,9 @@ public class ForegroundService extends Service {
 
     private void notifyStateChanged() {
         Log.d(LOGTAG, currentState.toString());
-        listener.onPlayerStateChange(currentState);
+        if(listener != null) {
+            listener.onPlayerStateChange(currentState);
+        }
         String notifyText;
         switch (currentState) {
             case PLAYING:
@@ -310,7 +316,7 @@ public class ForegroundService extends Service {
             Bitmap icon = BitmapFactory.decodeResource(getResources(),
                     R.mipmap.ic_launcher);
 
-            Notification notification = builder.setContentTitle(Config.NOTIFICATION_TITLE)
+            builder.setContentTitle(Config.NOTIFICATION_TITLE)
                     .setTicker(Config.NOTIFICATION_TITLE)
                     .setContentText("Radio")
                     .setSmallIcon(R.mipmap.ic_launcher)
@@ -326,14 +332,18 @@ public class ForegroundService extends Service {
                                     : "Play", pPlayIntent)
                     .addAction(android.R.drawable.ic_delete, "Quit", pQuitIntent)
                     .build();
-            return notification;
+            return builder.build();
         } else {
             return null;
         }
     }
 
     private void updateNotification(String text) {
-        notificationBuilder.setContentText(text);
+        notificationBuilder.mActions.get(0).icon = currentState == Config.State.PLAYING ? android.R.drawable.ic_media_pause
+                : android.R.drawable.ic_media_play;
+        notificationBuilder.setContentText(text)
+                           .setOngoing(true)
+                           .setAutoCancel(false);
         notificationManager.notify(Constants.SERVICE_ID, notificationBuilder.build());
     }
 
@@ -347,12 +357,14 @@ public class ForegroundService extends Service {
     public void doStartForeground() {
         initActionIntents();
         startForeground(Constants.SERVICE_ID, generateNotification(notificationBuilder));
-
     }
-    //endregion
 
     public void doStopForeground() {
         Log.d(LOGTAG, "doStopForeground()");
         stopForeground(true);
     }
+    //endregion
+
+
+
 }

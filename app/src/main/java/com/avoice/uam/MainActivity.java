@@ -1,5 +1,6 @@
 package com.avoice.uam;
 
+import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
@@ -7,6 +8,8 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
 import android.os.IBinder;
 import android.os.PowerManager;
@@ -17,6 +20,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.avoice.uam.interfaces.OnPlayerStateChangedListener;
 import com.avoice.uam.util.Config;
@@ -41,7 +45,7 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
         isServiceBound = false;
         doBindService();
 
-        //Init the UI
+        /*Init the UI*/
         infoTextView = (TextView) findViewById(R.id.tv_info);
         progressBar = (ProgressBar) findViewById(R.id.progressBar);
         progressBar.setVisibility(View.GONE);
@@ -49,8 +53,13 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
         btnPlay.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if(mAudioService != null) {
-                    mAudioService.executeAction(Constants.Action.ACTION_PLAY);
+                if(isNetworkAvailable()) {
+                    if(mAudioService != null) {
+                        mAudioService.doStartForeground();
+                        mAudioService.executeAction(Constants.Action.ACTION_PLAY);
+                    }
+                } else {
+                    Toast.makeText(MainActivity.this, getString(R.string.no_network), Toast.LENGTH_SHORT).show();
                 }
             }
         });
@@ -59,7 +68,7 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
 
     @Override
     protected void onDestroy() {
-        mAudioService.doStartForeground();
+        //mAudioService.doStartForeground();
         doUnbindService();
         Log.d(LOGTAG, "onDestroy()");
         super.onDestroy();
@@ -88,6 +97,7 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
 
     private void doUnbindService() {
         if(isServiceBound) {
+            mAudioService.setOnStateChangeListener(null);
             unbindService(mServiceConnection);
         }
     }
@@ -128,17 +138,21 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
 
     @Override
     protected void onPause() {
-        if(mAudioService != null) {
-            mAudioService.doStartForeground();
-        }
         super.onPause();
     }
 
     @Override
     protected void onResume() {
-        if(mAudioService != null) {
+        /*if(mAudioService != null) {
             mAudioService.doStopForeground();
-        }
+        }*/
         super.onResume();
+    }
+
+    private boolean isNetworkAvailable() {
+        ConnectivityManager connectivityManager
+                = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
     }
 }
