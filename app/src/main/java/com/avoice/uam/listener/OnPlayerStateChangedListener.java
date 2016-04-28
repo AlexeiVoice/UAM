@@ -1,4 +1,4 @@
-package com.avoice.uam.interfaces;
+package com.avoice.uam.listener;
 
 import com.avoice.uam.util.Config;
 

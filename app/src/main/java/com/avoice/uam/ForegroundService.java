@@ -8,25 +8,22 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.wifi.WifiManager;
-import android.os.AsyncTask;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.PowerManager;
-import android.support.v4.app.NotificationCompat;
+import android.support.v7.app.NotificationCompat;
 import android.util.Log;
-import android.view.View;
 import android.widget.RemoteViews;
-import android.widget.RemoteViews.RemoteView;
 
-import com.avoice.uam.interfaces.OnPlayerStateChangedListener;
+import com.avoice.uam.listener.OnPlayerStateChangedListener;
 import com.avoice.uam.util.Config;
 import com.avoice.uam.util.Constants;
 
 import java.io.IOException;
-import java.lang.annotation.Annotation;
 
 public class ForegroundService extends Service {
     private final String LOGTAG = "ForegroundService";
@@ -60,6 +57,7 @@ public class ForegroundService extends Service {
     public void onCreate() {
         notificationBuilder = new NotificationCompat.Builder(getApplicationContext());
         notificationManager = (NotificationManager) getSystemService(this.NOTIFICATION_SERVICE);
+
         wifiLock = ((WifiManager) getSystemService(Context.WIFI_SERVICE))
                 .createWifiLock(WifiManager.WIFI_MODE_FULL, WIFILOCK);
         super.onCreate();
@@ -167,7 +165,7 @@ public class ForegroundService extends Service {
             default: notifyText = "stopped";
                 break;
         }
-        updateNotification(notifyText);
+        //updateNotification(notifyText);
     }
 
     //region Playing Methods
@@ -316,7 +314,14 @@ public class ForegroundService extends Service {
             Bitmap icon = BitmapFactory.decodeResource(getResources(),
                     R.mipmap.ic_launcher);
 
-            builder.setContentTitle(Config.NOTIFICATION_TITLE)
+            builder.setStyle(new NotificationCompat.MediaStyle()
+                            .setShowActionsInCompactView(0, 1)
+                            .setCancelButtonIntent(pQuitIntent)
+                            .setShowCancelButton(true))
+                    .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setContentTitle(Config.NOTIFICATION_TITLE)
                     .setTicker(Config.NOTIFICATION_TITLE)
                     .setContentText("Radio")
                     .setSmallIcon(R.mipmap.ic_launcher)
@@ -325,13 +330,12 @@ public class ForegroundService extends Service {
                     .setDeleteIntent(pQuitIntent)
                     .setOngoing(true)
                     .setOnlyAlertOnce(true)
-                    .setAutoCancel(false)
+                    .setAutoCancel(true)
                     .addAction(currentState == Config.State.PLAYING ? android.R.drawable.ic_media_pause
                                     : android.R.drawable.ic_media_play,
                             currentState == Config.State.PLAYING ? "Pause"
                                     : "Play", pPlayIntent)
-                    .addAction(android.R.drawable.ic_delete, "Quit", pQuitIntent)
-                    .build();
+                    .addAction(android.R.drawable.ic_delete, "Quit", pQuitIntent);
             return builder.build();
         } else {
             return null;
@@ -339,15 +343,14 @@ public class ForegroundService extends Service {
     }
 
     private void updateNotification(String text) {
-        notificationBuilder.mActions.get(0).icon = currentState == Config.State.PLAYING ? android.R.drawable.ic_media_pause
-                : android.R.drawable.ic_media_play;
+        //notificationBuilder.mActions.get(0).icon = currentState == Config.State.PLAYING ? android.R.drawable.ic_media_pause
+         //       : android.R.drawable.ic_media_play;
         notificationBuilder.setContentText(text)
                            .setOngoing(true)
                            .setAutoCancel(false);
         notificationManager.notify(Constants.SERVICE_ID, notificationBuilder.build());
     }
 
-    //private RemoteView notificationView =
 
     //region Interaction methods
     public Config.State getCurrentState() {
