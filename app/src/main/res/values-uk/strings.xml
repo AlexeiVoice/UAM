@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">UAM</string>
+    <string name="no_network">З’єднання з інтернетом недоступно.</string>
+    <string name="pause_playing">Пауза</string>
+    <string name="paused">Призупинено</string>
+    <string name="playing">Грає: </string>
+    <string name="preparing">Завантаження, зачекайте будь ласка.</string>
+    <string name="start_playing">Грати</string>
+    <string name="unknown_artist">Невідомий виконавець</string>
+    <string name="unknown_song">Невідома пісня</string>
+    <string name="buffering">Буфферізація: %1$s %%</string>
+</resources>

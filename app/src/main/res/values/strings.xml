@@ -4,9 +4,15 @@
     <string name="pause_playing">Pause</string>
     <string name="no_network">Internet connection is unavailable.</string>
 
-    <!-- INFO TEXT -->
+    <!-- PLAYBACK INFO TEXT -->
     <string name="preparing">Loading, please wait.</string>
     <string name="playing">Playing: </string>
     <string name="paused">Paused</string>
+    <!--                     -->
+
+    <!-- TRACK INFO -->
+    <string name="unknown_song">Unknown song</string>
+    <string name="unknown_artist">Unknown artist</string>
+    <string name="buffering">Buffering: %1$s %%</string>
     <!--           -->
 </resources>

@@ -9,4 +9,9 @@ public class Constants {
         public static final String START_FOREGROUND = "com.avoice.uam.action.start_foreground";
         public static final String STOP_FOREGROUND = "com.avoice.uam.action.stop_foreground";
     }
+
+    public enum ApiCalls {
+        CURRENT_TRACK,
+        PREVIOUS_TRACKS
+    }
 }

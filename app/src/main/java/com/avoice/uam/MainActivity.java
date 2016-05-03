@@ -14,7 +14,6 @@ import android.util.Log;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
-import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -71,7 +70,6 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
 
     @Override
     protected void onDestroy() {
-        //mAudioService.doStartForeground();
         doUnbindService();
         Log.d(LOGTAG, "onDestroy()");
         super.onDestroy();
@@ -82,7 +80,7 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
             mAudioService = ((ForegroundService.MusicServiceBinder) iBinder).getService();
             isServiceBound = true;
-            mAudioService.setOnStateChangeListener(MainActivity.this);
+            mAudioService.setOnStateChangedListener(MainActivity.this);
         }
 
         @Override
@@ -100,19 +98,19 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
 
     private void doUnbindService() {
         if(isServiceBound) {
-            mAudioService.setOnStateChangeListener(null);
+            mAudioService.setOnStateChangedListener(null);
             unbindService(mServiceConnection);
         }
     }
 
     private void initUI() {
         if(mAudioService != null) {
-            onPlayerStateChange(mAudioService.getCurrentState());
+            onPlayerStateChanged(mAudioService.getCurrentState());
         }
     }
 
     @Override
-    public void onPlayerStateChange(Config.State newState) {
+    public void onPlayerStateChanged(Config.State newState) {
         switch (newState) {
             case PAUSED:
                 infoTextView.setText(getString(R.string.paused));
@@ -144,6 +142,11 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
     }
 
     @Override
+    public void onPlayerBufferingPercentChanged(int percent) {
+        infoTextView.setText(getString(R.string.buffering, percent));
+    }
+
+    @Override
     protected void onPause() {
         super.onPause();
     }
@@ -162,4 +165,6 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
         NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
         return activeNetworkInfo != null && activeNetworkInfo.isConnected();
     }
+
+    //TODO Add BroadcastReceiver to track internet connection changes.
 }
