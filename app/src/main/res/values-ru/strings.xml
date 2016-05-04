@@ -4,10 +4,11 @@
     <string name="no_network">Соединение с интернетом недоступно.</string>
     <string name="pause_playing">Пауза</string>
     <string name="paused">Приостановлено</string>
-    <string name="playing">Играет: </string>
+    <string name="playing">Играет: %1$s</string>
     <string name="preparing">Загрузка, пожалуйста подождите.</string>
     <string name="start_playing">Играть</string>
     <string name="unknown_artist">Неизвестный исполнитель</string>
     <string name="unknown_song">Неизвестная песня</string>
     <string name="buffering">Буфферизация: %1$s %%</string>
+    <string name="cover_placeholder">Обложка недоступна</string>
 </resources>

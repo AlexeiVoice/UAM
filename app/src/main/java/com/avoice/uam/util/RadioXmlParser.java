@@ -147,7 +147,7 @@ public class RadioXmlParser {
      */
     private void skip(XmlPullParser parser) throws XmlPullParserException, IOException,
             IllegalStateException{
-        if(parser.getEventType() != XmlPullParser.START_DOCUMENT) {
+        if(parser.getEventType() != XmlPullParser.START_TAG) {
             throw new IllegalStateException();
         }
         int depth = 1;

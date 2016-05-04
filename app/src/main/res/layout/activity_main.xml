@@ -7,35 +7,57 @@
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
     tools:context=".MainActivity">
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
-   <!-- <Button
-        android:id="@+id/btn_start_playing"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/start_playing"
-        android:layout_centerHorizontal="true" /> -->
-    <android.support.design.widget.FloatingActionButton
-        android:id="@+id/btn_start_playing"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal|top"
-        android:layout_marginTop="10dp"
-        android:layout_margin="@dimen/fab_margin"
-        app:backgroundTint="@color/colorPrimary"
-        android:src="@android:drawable/ic_media_play" />
-    <TextView
-        android:id="@+id/tv_info"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/btn_start_playing"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="63dp" />
-    <ProgressBar
-        android:id="@+id/progressBar"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:indeterminate="true"
-        android:layout_centerVertical="true"
-        android:layout_centerHorizontal="true"/>
+       <!-- <Button
+            android:id="@+id/btn_start_playing"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/start_playing"
+            android:layout_centerHorizontal="true" /> -->
+         <Button
+            android:id="@+id/btn_getSongInfo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Get song info"
+             android:layout_alignParentBottom="true"
+             android:layout_alignParentRight="true"
+             android:layout_alignParentEnd="true" />
+
+        <TextView
+            android:id="@+id/tv_info"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerHorizontal="true"
+
+            android:layout_marginTop="63dp" />
+        <ImageView
+            android:id="@+id/iv_cover"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/tv_info"
+            android:layout_centerHorizontal="true"
+            android:contentDescription="@string/cover_placeholder"
+            android:visibility="visible"
+            android:src="@android:drawable/editbox_dropdown_dark_frame"/>
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:indeterminate="true"
+            android:layout_centerVertical="true"
+            android:layout_centerHorizontal="true"/>
+        <android.support.design.widget.FloatingActionButton
+            android:id="@+id/btn_start_playing"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:src="@android:drawable/ic_media_play"
+            app:backgroundTint="@color/colorPrimary"
+            android:layout_below="@+id/iv_cover"
+            android:layout_centerHorizontal="true" />
+    </RelativeLayout>
 </android.support.design.widget.CoordinatorLayout>

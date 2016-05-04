@@ -14,20 +14,27 @@ import android.util.Log;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
+import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.avoice.uam.listener.OnPlayerStateChangedListener;
+import com.avoice.uam.listener.OnTrackChangedListener;
+import com.avoice.uam.model.Track;
 import com.avoice.uam.util.Config;
 import com.avoice.uam.util.Constants;
+import com.squareup.picasso.Picasso;
 
-public class MainActivity extends AppCompatActivity implements OnPlayerStateChangedListener {
-    private final String LOGTAG = "MainActivity";
+public class MainActivity extends AppCompatActivity implements OnPlayerStateChangedListener,
+        OnTrackChangedListener{
+    private final String TAG = "MainActivity";
 
     private FloatingActionButton btnPlay;
     private ProgressBar progressBar;
     private TextView infoTextView;
+    private ImageView coverImageView;
     private Animation playClickAnimation;
 
     private ForegroundService mAudioService;
@@ -45,7 +52,9 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
         /*Init the UI*/
         infoTextView = (TextView) findViewById(R.id.tv_info);
         progressBar = (ProgressBar) findViewById(R.id.progressBar);
-        progressBar.setVisibility(View.GONE);
+        if (progressBar != null) {
+            progressBar.setVisibility(View.GONE);
+        }
         btnPlay = (FloatingActionButton) findViewById(R.id.btn_start_playing);
         btnPlay.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -65,13 +74,26 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
             }
         });
         playClickAnimation = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.click_play);
+
+        coverImageView = (ImageView)findViewById(R.id.iv_cover);
         initUI();
+
+        /*DEBUG*/
+        Button getSongInfo = (Button)findViewById(R.id.btn_getSongInfo);
+        getSongInfo.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mAudioService.getSongInfo();
+            }
+        });
+        /*ENDOFDEBUG*/
     }
 
     @Override
     protected void onDestroy() {
         doUnbindService();
-        Log.d(LOGTAG, "onDestroy()");
+        Picasso.with(this).cancelRequest(coverImageView);
+        Log.d(TAG, "onDestroy()");
         super.onDestroy();
     }
 
@@ -81,6 +103,7 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
             mAudioService = ((ForegroundService.MusicServiceBinder) iBinder).getService();
             isServiceBound = true;
             mAudioService.setOnStateChangedListener(MainActivity.this);
+            mAudioService.setOnTrackChangedListener(MainActivity.this);
         }
 
         @Override
@@ -119,7 +142,7 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
                 progressBar.setVisibility(View.GONE);
                 break;
             case PLAYING:
-                infoTextView.setText(getString(R.string.playing));
+                infoTextView.setText(getString(R.string.playing,""));
                 //btnPlay.setText(getString(R.string.pause_playing));
                 btnPlay.setImageResource(android.R.drawable.ic_media_pause);
                 progressBar.setVisibility(View.GONE);
@@ -144,6 +167,18 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
     @Override
     public void onPlayerBufferingPercentChanged(int percent) {
         infoTextView.setText(getString(R.string.buffering, percent));
+    }
+
+    @Override
+    public void onTrackChanged(Track newTrack) {
+        infoTextView.setText(newTrack.toString());
+        if (newTrack.getCoverUrl() != "") {
+            try {
+                Picasso.with(this).load(newTrack.getCoverUrl()).into(coverImageView);
+            } catch (IllegalArgumentException e) {
+                Log.i(TAG, "onTrackChanged: " + "cover url is invalid");
+            }
+        }
     }
 
     @Override

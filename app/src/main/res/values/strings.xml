@@ -6,7 +6,7 @@
 
     <!-- PLAYBACK INFO TEXT -->
     <string name="preparing">Loading, please wait.</string>
-    <string name="playing">Playing: </string>
+    <string name="playing">Playing: %1$s</string>
     <string name="paused">Paused</string>
     <!--                     -->
 
@@ -14,5 +14,6 @@
     <string name="unknown_song">Unknown song</string>
     <string name="unknown_artist">Unknown artist</string>
     <string name="buffering">Buffering: %1$s %%</string>
+    <string name="cover_placeholder">Cover is unavailable</string>
     <!--           -->
 </resources>

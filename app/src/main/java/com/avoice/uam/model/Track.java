@@ -19,4 +19,48 @@ public class Track {
         this.coverUrl = coverUrl;
         this.timeLeft = timeLeft;
     }
+
+    public Track(Track track) {
+        this.title = track.getTitle();
+        this.artist = track.getArtist();
+        this.coverUrl = track.getCoverUrl();
+        this.timeLeft = track.getTimeLeft();
+    }
+
+    public String getTitle() {
+        return title == null ? "" : title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getArtist() {
+        return artist == null ? "" : artist;
+    }
+
+    public void setArtist(String artist) {
+        this.artist = artist;
+    }
+
+    public String getCoverUrl() {
+        return coverUrl == null ? "" : coverUrl;
+    }
+
+    public void setCoverUrl(String coverUrl) {
+        this.coverUrl = coverUrl;
+    }
+
+    public String getTimeLeft() {
+        return timeLeft == null ? " " : timeLeft;
+    }
+
+    public void setTimeLeft(String timeLeft) {
+        this.timeLeft = timeLeft;
+    }
+
+    @Override
+    public String toString() {
+        return getArtist() + " - " + getTitle();
+    }
 }

@@ -8,13 +8,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.drawable.Drawable;
 import android.media.AudioManager;
-import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.support.v7.app.NotificationCompat;
@@ -26,6 +27,8 @@ import com.avoice.uam.model.Track;
 import com.avoice.uam.util.Config;
 import com.avoice.uam.util.Constants;
 import com.avoice.uam.util.RadioXmlParser;
+import com.squareup.picasso.Picasso;
+import com.squareup.picasso.Target;
 
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -34,9 +37,10 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Timer;
 
 public class ForegroundService extends Service {
-    private final String LOGTAG = "ForegroundService";
+    private final String TAG = "ForegroundService";
     private final String WIFILOCK = "UAM_lock";
 
     private final String RADIOUID = "48ae349f-4283-46cb-9777-f28664875942";
@@ -56,6 +60,10 @@ public class ForegroundService extends Service {
 
     private boolean notificationShown;
 
+    private Track currentTrack;
+    /** For downloading track cover*/
+    private Target target;
+
     public ForegroundService() {
         currentState = Config.State.STOPPED;
     }
@@ -69,6 +77,7 @@ public class ForegroundService extends Service {
         }
     }
 
+    //region > OVERRIDE METHODS
     @Override
     public void onCreate() {
         //notificationBuilder = new NotificationCompat.Builder(getApplicationContext());
@@ -134,9 +143,13 @@ public class ForegroundService extends Service {
         if(wifiLock.isHeld()) {
             wifiLock.release();
         }
-        Log.d(LOGTAG, "onDestroy()");
+        if (target != null) {
+            Picasso.with(getApplicationContext()).cancelRequest(target);
+        }
+        Log.d(TAG, "onDestroy()");
         super.onDestroy();
     }
+    //endregion
 
     public void executeAction(String action) {
 
@@ -154,7 +167,7 @@ public class ForegroundService extends Service {
                     pause();
                     break;
                 default:
-                    Log.i(LOGTAG, "executeAction(): unknown action");
+                    Log.i(TAG, "executeAction(): unknown action");
                     //stopPlaying();
                     break;
             }
@@ -162,14 +175,49 @@ public class ForegroundService extends Service {
     }
 
     private void notifyStateChanged() {
-        Log.d(LOGTAG, currentState.toString());
+        Log.d(TAG, currentState.toString());
         if(stateChangedListener != null) {
             stateChangedListener.onPlayerStateChanged(currentState);
         }
+        updateState();
+    }
+
+    /**
+     * Notify if buffering percentage changed (hence works only in PREPARING state).
+     * @param bufferingPercentage
+     */
+    private void notifyStateChanged(int bufferingPercentage) {
+        if(currentState == Config.State.PREPARING && stateChangedListener != null) {
+            stateChangedListener.onPlayerBufferingPercentChanged(bufferingPercentage);
+        }
+    }
+
+    private void notifyTrackChanged(Track newTrack) {
+        Log.d(TAG, newTrack.getArtist() + " - " + newTrack.getTitle() + ".\nCover URL: "
+                + newTrack.getCoverUrl() + " Time left: " + newTrack.getTimeLeft());
+        updateTrackInfo(newTrack);
+        if (trackChangedListener != null) {
+            trackChangedListener.onTrackChanged(newTrack);
+        }
+        //delay (if some troubles - delay 60sec)
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                getSongInfo();
+            }
+        }, Integer.getInteger(newTrack.getTimeLeft(), 60000));
+
+    }
+
+    private void updateState(){
         String notifyText;
         switch (currentState) {
             case PLAYING:
-                notifyText = getString(R.string.playing);
+                if (currentTrack != null) {
+                    notifyText = getString(R.string.playing, currentTrack.toString());
+                } else {
+                    notifyText = getString(R.string.playing, "");
+                }
                 break;
             case RESTART:
             case PREPARING:
@@ -185,20 +233,22 @@ public class ForegroundService extends Service {
         updateNotification(notifyText);
     }
 
-    private void notifyStateChanged(int bufferingPercentage) {
-        if(currentState == Config.State.PREPARING && stateChangedListener != null) {
-            stateChangedListener.onPlayerBufferingPercentChanged(bufferingPercentage);
+    private void updateTrackInfo(Track newTrack) {
+        //persist current track
+        currentTrack = new Track(newTrack);
+        //update notification
+        String notifyText = getString(R.string.playing, currentTrack.toString());
+        if (newTrack.getCoverUrl() != "") {
+            updateNotification(notifyText, newTrack.getCoverUrl());
+        } else {
+            updateNotification(notifyText);
         }
     }
 
-    private void notifyTrackChanged(Track newTrack) {
-        trackChangedListener.onTrackChanged(newTrack);
-    }
-
-    //region Playing Methods
+    //region > PLAYBACK METHODS
     private void play(String url) {
-        Log.d(LOGTAG, "play()");
-        final Uri playUrl = Uri.parse(url);
+        Log.d(TAG, "play()");
+        //final Uri playUrl = Uri.parse(url);
         if(currentState == Config.State.STOPPED) {
             mPlayer = new MediaPlayer();
             currentState = Config.State.PREPARING;
@@ -211,7 +261,7 @@ public class ForegroundService extends Service {
                 mPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
                     @Override
                     public void onPrepared(final MediaPlayer mediaPlayer) {
-                        Log.d(LOGTAG, "onPrepared");
+                        Log.d(TAG, "onPrepared");
                         currentState = Config.State.PLAYING;
                         notifyStateChanged();
                         /*new Thread(new Runnable() {
@@ -227,7 +277,7 @@ public class ForegroundService extends Service {
                 mPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                     @Override
                     public void onCompletion(MediaPlayer mediaPlayer) {
-                        Log.d(LOGTAG, "onCompletion()");
+                        Log.d(TAG, "onCompletion()");
                         mediaPlayer.pause();
                         //TODO Deal with this case: after unpausing player only plays part that happened to be downloaded before pause.
                         /*currentState = Config.State.PAUSED;
@@ -247,7 +297,7 @@ public class ForegroundService extends Service {
 
             } catch (IOException | IllegalStateException | IllegalArgumentException |SecurityException
                     e ) {
-                Log.e(LOGTAG, "playSound() error: " + e.toString());
+                Log.e(TAG, "playSound() error: " + e.toString());
                 return;
             }
         } else if(currentState == Config.State.PAUSED) {
@@ -262,7 +312,7 @@ public class ForegroundService extends Service {
     }
 
     private void pause() {
-        Log.d(LOGTAG, "pause()");
+        Log.d(TAG, "pause()");
         if (mPlayer != null) {
             try {
                 if(mPlayer.isPlaying()) {
@@ -271,7 +321,7 @@ public class ForegroundService extends Service {
                     notifyStateChanged();
                 }
             } catch (IllegalStateException e) {
-                Log.e(LOGTAG, "pause(): " + e.toString());
+                Log.e(TAG, "pause(): " + e.toString());
                 mPlayer.release();
                 currentState = Config.State.STOPPED;
                 notifyStateChanged();
@@ -291,7 +341,7 @@ public class ForegroundService extends Service {
     private boolean stopPlaying() {
         currentState = Config.State.STOPPED;
         notifyStateChanged();
-        Log.d(LOGTAG, "stopPlaying()");
+        Log.d(TAG, "stopPlaying()");
         if (mPlayer == null) {
             if(wifiLock.isHeld()) {
                 wifiLock.release();
@@ -305,7 +355,7 @@ public class ForegroundService extends Service {
                 mPlayer.release();
                 mPlayer = null;
             } catch (IllegalStateException e) {
-                Log.e(LOGTAG, "stopPlaying: " + e.toString());
+                Log.e(TAG, "stopPlaying: " + e.toString());
                 mPlayer.release();
                 mPlayer = null;
                 if(wifiLock.isHeld()) {
@@ -324,7 +374,6 @@ public class ForegroundService extends Service {
     public void setOnStateChangedListener(OnPlayerStateChangedListener listener) {
         this.stateChangedListener = listener;
     }
-
     public void setOnTrackChangedListener(OnTrackChangedListener listener) {
         this.trackChangedListener = listener;
     }
@@ -383,14 +432,39 @@ public class ForegroundService extends Service {
 
     private void updateNotification(String text) {
         if(notificationShown){
-            notificationBuilder.mActions.get(0).icon = currentState == Config.State.PLAYING ? android.R.drawable.ic_media_pause
-                    : android.R.drawable.ic_media_play;
+            notificationBuilder.mActions.get(0).icon = currentState == Config.State.PLAYING ?
+                    android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play;
             notificationBuilder.setContentText(text);
             notificationManager.notify(Constants.SERVICE_ID, notificationBuilder.build());
         }
     }
 
-    //region Interaction methods
+    private void updateNotification(final String text, final String coverUrl) {
+        if(notificationShown){
+            target = new Target() {
+                @Override
+                public void onBitmapLoaded(Bitmap bitmap, Picasso.LoadedFrom from) {
+                    notificationBuilder
+                            .setContentText(text)
+                            .setLargeIcon(bitmap);
+                    notificationManager.notify(Constants.SERVICE_ID, notificationBuilder.build());
+                }
+
+                @Override
+                public void onBitmapFailed(Drawable errorDrawable) {
+
+                }
+
+                @Override
+                public void onPrepareLoad(Drawable placeHolderDrawable) {
+
+                }
+            };
+            Picasso.with(getApplicationContext()).load(coverUrl).into(target);
+        }
+    }
+
+    //region > ACTIVITY INTERACTION METHODS
     public Config.State getCurrentState() {
         return currentState;
     }
@@ -402,12 +476,12 @@ public class ForegroundService extends Service {
     }
 
     public void doStopForeground() {
-        Log.d(LOGTAG, "doStopForeground()");
+        Log.d(TAG, "doStopForeground()");
         stopForeground(true);
     }
     //endregion
 
-    public class FetchRadioInfo extends AsyncTask<Constants.ApiCalls, Void, Track[]> {
+    public class FetchRadioInfoTask extends AsyncTask<Constants.ApiCalls, Void, Track[]> {
         @Override
         protected Track[] doInBackground(Constants.ApiCalls... params) {
             HttpURLConnection urlConnection;
@@ -447,7 +521,7 @@ public class ForegroundService extends Service {
                 url = new URL(builtUri.toString());
             } catch (MalformedURLException e) {
                 e.printStackTrace();
-                Log.e(LOGTAG, "FetchRadioInfo. Error: " + e.toString());
+                Log.e(TAG, "FetchRadioInfoTask. Error: " + e.toString());
             }
 
             try {
@@ -462,20 +536,25 @@ public class ForegroundService extends Service {
                 } else {
                     radioXmlParser = new RadioXmlParser();
                     Track track = radioXmlParser.parse(inputStream);
-                    Track[] tracks = {track};
-                    return tracks;
+                    return new Track[]{track};
                 }
             } catch (IOException | XmlPullParserException e) {
                 e.printStackTrace();
-                Log.e(LOGTAG, "FetchRadioInfo. Error: " + e.toString());
+                Log.e(TAG, "FetchRadioInfoTask. Error: " + e.toString());
             }
             return null;
         }
 
         @Override
         protected void onPostExecute(Track[] tracks) {
+            notifyTrackChanged(tracks[0]);
             super.onPostExecute(tracks);
         }
     }
 
+    /*DEBUG*/
+    public void getSongInfo() {
+        new FetchRadioInfoTask().execute(Constants.ApiCalls.CURRENT_TRACK);
+    }
+    /*ENDOFDEBUG*/
 }
