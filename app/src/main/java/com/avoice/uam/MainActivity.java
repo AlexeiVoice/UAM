@@ -59,17 +59,18 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
         btnPlay.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                mAudioService.executeAction(Constants.Action.ACTION_PLAY);
                 if(isNetworkAvailable()) {
                     if(mAudioService != null) {
+                        mAudioService.executeAction(Constants.Action.ACTION_PLAY);
                         mAudioService.doStartForeground();
                         btnPlay.startAnimation(playClickAnimation);
                         btnPlay.setImageResource(showPlayButton ? android.R.drawable.ic_media_play
                                                                 : android.R.drawable.ic_media_pause);
-                        showPlayButton = !showPlayButton;
+                        //showPlayButton = !showPlayButton;
                     }
                 } else {
-                    Toast.makeText(MainActivity.this, getString(R.string.no_network), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, getString(R.string.no_network),
+                            Toast.LENGTH_SHORT).show();
                 }
             }
         });
@@ -83,7 +84,12 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
         getSongInfo.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mAudioService.getSongInfo();
+                if(isNetworkAvailable()) {
+                    mAudioService.getSongInfo();
+                } else {
+                    Toast.makeText(MainActivity.this, getString(R.string.no_network),
+                            Toast.LENGTH_SHORT).show();
+                }
             }
         });
         /*ENDOFDEBUG*/
@@ -136,28 +142,28 @@ public class MainActivity extends AppCompatActivity implements OnPlayerStateChan
     public void onPlayerStateChanged(Config.State newState) {
         switch (newState) {
             case PAUSED:
+                showPlayButton = true;
                 infoTextView.setText(getString(R.string.paused));
-                //btnPlay.setText(getString(R.string.start_playing));
                 btnPlay.setImageResource(android.R.drawable.ic_media_play);
                 progressBar.setVisibility(View.GONE);
                 break;
             case PLAYING:
+                showPlayButton = false;
                 infoTextView.setText(getString(R.string.playing,""));
-                //btnPlay.setText(getString(R.string.pause_playing));
-                btnPlay.setImageResource(android.R.drawable.ic_media_pause);
+                //btnPlay.setImageResource(android.R.drawable.ic_media_pause);
                 progressBar.setVisibility(View.GONE);
                 break;
             case PREPARING:
             case RESTART:
+                showPlayButton = false;
                 infoTextView.setText(getString(R.string.preparing));
-                //btnPlay.setText(getString(R.string.pause_playing));
-                btnPlay.setImageResource(android.R.drawable.ic_media_pause);
+                //btnPlay.setImageResource(android.R.drawable.ic_media_pause);
                 progressBar.setVisibility(View.VISIBLE);
                 break;
             case STOPPED:
             default:
+                showPlayButton = true;
                 infoTextView.setText("");
-                //btnPlay.setText(getString(R.string.start_playing));
                 btnPlay.setImageResource(android.R.drawable.ic_media_play);
                 progressBar.setVisibility(View.GONE);
                 break;

@@ -40,6 +40,7 @@ import java.net.URL;
 import java.util.Timer;
 
 public class ForegroundService extends Service {
+    //region FIELDS
     private final String TAG = "ForegroundService";
     private final String WIFILOCK = "UAM_lock";
 
@@ -61,8 +62,9 @@ public class ForegroundService extends Service {
     private boolean notificationShown;
 
     private Track currentTrack;
-    /** For downloading track cover*/
+    /** For downloading track cover using Picasso lib*/
     private Target target;
+    //endregion
 
     public ForegroundService() {
         currentState = Config.State.STOPPED;
@@ -107,8 +109,8 @@ public class ForegroundService extends Service {
                     break;
                 case Constants.Action.ACTION_QUIT:
                     stopPlaying();
-                    stopForeground(true);
-                    stopSelf();
+                    doStopForeground();
+                    doStopSelf();
                     break;
                 default:
                     break;
@@ -136,16 +138,7 @@ public class ForegroundService extends Service {
 
     @Override
     public void onDestroy() {
-        if (mPlayer != null) {
-            mPlayer.release();
-            mPlayer = null;
-        }
-        if(wifiLock.isHeld()) {
-            wifiLock.release();
-        }
-        if (target != null) {
-            Picasso.with(getApplicationContext()).cancelRequest(target);
-        }
+        cleanUp();
         Log.d(TAG, "onDestroy()");
         super.onDestroy();
     }
@@ -278,13 +271,11 @@ public class ForegroundService extends Service {
                     @Override
                     public void onCompletion(MediaPlayer mediaPlayer) {
                         Log.d(TAG, "onCompletion()");
-                        mediaPlayer.pause();
                         //TODO Deal with this case: after unpausing player only plays part that happened to be downloaded before pause.
                         /*currentState = Config.State.PAUSED;
                         notifyStateChanged();*/
-                        currentState = Config.State.RESTART;
+                        currentState = Config.State.PAUSED;
                         notifyStateChanged();
-                        play(Config.RADIO_URL);
                     }
                 });
                 mPlayer.setOnBufferingUpdateListener(new MediaPlayer.OnBufferingUpdateListener() {
@@ -481,6 +472,26 @@ public class ForegroundService extends Service {
     }
     //endregion
 
+    public void doStopSelf() {
+        cleanUp();
+        stopSelf();
+    }
+
+    /**
+     * Stops mediaplayer, releases locks, cancels requests.
+     */
+    public void cleanUp() {
+        if (mPlayer != null) {
+            mPlayer.release();
+            mPlayer = null;
+        }
+        if(wifiLock.isHeld()) {
+            wifiLock.release();
+        }
+        if (target != null) {
+            Picasso.with(getApplicationContext()).cancelRequest(target);
+        }
+    }
     public class FetchRadioInfoTask extends AsyncTask<Constants.ApiCalls, Void, Track[]> {
         @Override
         protected Track[] doInBackground(Constants.ApiCalls... params) {
